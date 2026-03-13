@@ -8,12 +8,17 @@ Answer each question in 3 to 5 sentences. Be specific and honest about what actu
 
     - nothing outstanding
 - List at least two concrete bugs you noticed at the start  
-  (for example: "the hints were backwards").
+<<<<<<< HEAD
+  (for example: "the secret number kept changing" or "the hints were backwards").
     - history doesn't clear, new game button doesn't work
     - hints were backwards
     - attempts start at 1 unless you click new game
     - in hard mode, when you enter a number it refreshes back to normal mode
     - you can go lower than 0 attempts
+=======
+  (for example: "the hints were backwards").
+
+>>>>>>> d28145213e029bd9f9244f5f8071e0985a5e266e
 ---
 
 ## 2. How did you use AI as a teammate?
@@ -41,8 +46,12 @@ Answer each question in 3 to 5 sentences. Be specific and honest about what actu
 ## 4. What did you learn about Streamlit and state?
 
 - In your own words, explain why the secret number kept changing in the original app.
+  - The session wasn't implemented correctly.
 - How would you explain Streamlit "reruns" and session state to a friend who has never used Streamlit?
+  - Session is the temporary cache for your current game, it stores the results.
+  - Reruns is a restart button to refresh and clear the session. 
 - What change did you make that finally gave the game a stable secret number?
+  - Session
 
 ---
 
