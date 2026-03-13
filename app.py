@@ -2,9 +2,11 @@ import random
 import streamlit as st
 from logic_utils import (
     check_guess,
+    get_attempt_limit_for_difficulty,
     get_range_for_difficulty,
     parse_guess,
     update_score,
+    validate_guess_range,
 )
 
 st.set_page_config(page_title="Glitchy Guesser", page_icon="🎮")
@@ -20,12 +22,7 @@ difficulty = st.sidebar.selectbox(
     index=1,
 )
 
-attempt_limit_map = {
-    "Easy": 6,
-    "Normal": 8,
-    "Hard": 5,
-}
-attempt_limit = attempt_limit_map[difficulty]
+attempt_limit = get_attempt_limit_for_difficulty(difficulty)
 
 low, high = get_range_for_difficulty(difficulty)
 
@@ -61,6 +58,31 @@ if "history" not in st.session_state:
 if "hint_message" not in st.session_state:
     #FIX: Persist latest hint in session state because Streamlit reruns clear transient UI messages.
     st.session_state.hint_message = None
+
+# --- Guess History Sidebar ---
+valid_guesses = [
+    g for g in st.session_state.history
+    if isinstance(g, int) and low <= g <= high
+]
+
+if valid_guesses:
+    st.sidebar.divider()
+    st.sidebar.subheader("📊 Guess History")
+    range_span = high - low  # always > 0 given valid difficulty configs
+    for i, g in enumerate(valid_guesses, 1):
+        distance = abs(g - st.session_state.secret)
+        proximity = 1.0 - distance / range_span  # 1.0 = exact, ~0.0 = opposite end
+        proximity_pct = int(proximity * 100)
+        if g == st.session_state.secret:
+            icon, direction = "✅", ""
+        elif g > st.session_state.secret:
+            icon = "🔴" if proximity < 0.5 else "🟡"
+            direction = " ↓ too high"
+        else:
+            icon = "🔴" if proximity < 0.5 else "🟡"
+            direction = " ↑ too low"
+        st.sidebar.markdown(f"{icon} **#{i}: {g}**{direction} — {proximity_pct}% close")
+        st.sidebar.progress(proximity)
 
 st.subheader("Make a guess")
 st.info(
@@ -111,44 +133,48 @@ if st.session_state.status != "playing":
     st.stop()
 
 if submit:
-    st.session_state.attempts += 1
-
     ok, guess_int, err = parse_guess(raw_guess)
 
     if not ok:
         st.session_state.history.append(raw_guess)
         st.error(err)
     else:
-        st.session_state.history.append(guess_int)
-
-        #FIX: Compare as integers only; mixed-type comparisons previously caused inconsistent outcomes.
-        outcome, message = check_guess(guess_int, st.session_state.secret)
-        #FIX: Save hint text before rerun so users can still see the latest hint on the next render.
-        st.session_state.hint_message = message
-
-        st.session_state.score = update_score(
-            current_score=st.session_state.score,
-            outcome=outcome,
-            attempt_number=st.session_state.attempts,
-        )
-
-        if outcome == "Win":
-            st.balloons()
-            st.session_state.status = "won"
-            st.session_state.hint_message = None
-            st.success(
-                f"You won! The secret was {st.session_state.secret}. "
-                f"Final score: {st.session_state.score}"
-            )
+        in_range, range_err = validate_guess_range(guess_int, low, high)
+        if not in_range:
+            st.session_state.history.append(guess_int)
+            st.error(range_err)
         else:
-            if st.session_state.attempts >= attempt_limit:
-                st.session_state.status = "lost"
+            st.session_state.attempts += 1
+            st.session_state.history.append(guess_int)
+
+            #FIX: Compare as integers only; mixed-type comparisons previously caused inconsistent outcomes.
+            outcome, message = check_guess(guess_int, st.session_state.secret)
+            #FIX: Save hint text before rerun so users can still see the latest hint on the next render.
+            st.session_state.hint_message = message
+
+            st.session_state.score = update_score(
+                current_score=st.session_state.score,
+                outcome=outcome,
+                attempt_number=st.session_state.attempts,
+            )
+
+            if outcome == "Win":
+                st.balloons()
+                st.session_state.status = "won"
                 st.session_state.hint_message = None
-                st.error(
-                    f"Out of attempts! "
-                    f"The secret was {st.session_state.secret}. "
-                    f"Score: {st.session_state.score}"
+                st.success(
+                    f"You won! The secret was {st.session_state.secret}. "
+                    f"Final score: {st.session_state.score}"
                 )
+            else:
+                if st.session_state.attempts >= attempt_limit:
+                    st.session_state.status = "lost"
+                    st.session_state.hint_message = None
+                    st.error(
+                        f"Out of attempts! "
+                        f"The secret was {st.session_state.secret}. "
+                        f"Score: {st.session_state.score}"
+                    )
     
     st.rerun()
 

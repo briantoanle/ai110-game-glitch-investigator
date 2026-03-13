@@ -5,7 +5,14 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from logic_utils import check_guess, get_range_for_difficulty, parse_guess, update_score
+from logic_utils import (
+    check_guess,
+    get_attempt_limit_for_difficulty,
+    get_range_for_difficulty,
+    parse_guess,
+    update_score,
+    validate_guess_range,
+)
 
 
 def test_winning_guess():
@@ -60,18 +67,26 @@ def test_parse_guess_invalid_text():
     assert err == "That is not a number."
 
 
-def test_parse_guess_decimal_string_truncates_to_int():
+@pytest.mark.parametrize("raw", [42, [], {}, 3.14])
+def test_parse_guess_non_string_input_is_rejected(raw):
+    ok, value, err = parse_guess(raw)
+    assert ok is False
+    assert value is None
+    assert err == "That is not a number."
+
+
+def test_parse_guess_decimal_string_is_rejected():
     ok, value, err = parse_guess("12.9")
-    assert ok is True
-    assert value == 12
-    assert err is None
+    assert ok is False
+    assert value is None
+    assert err == "That is not a number."
 
 
-def test_parse_guess_negative_decimal_truncates_toward_zero():
+def test_parse_guess_negative_decimal_is_rejected():
     ok, value, err = parse_guess("-12.9")
-    assert ok is True
-    assert value == -12
-    assert err is None
+    assert ok is False
+    assert value is None
+    assert err == "That is not a number."
 
 
 def test_parse_guess_whitespace_integer_parses():
@@ -86,6 +101,49 @@ def test_parse_guess_scientific_notation_is_rejected():
     assert ok is False
     assert value is None
     assert err == "That is not a number."
+
+
+@pytest.mark.parametrize(
+    "guess, low, high, expected_ok, expected_err",
+    [
+        (1, 1, 20, True, None),
+        (20, 1, 20, True, None),
+        (0, 1, 20, False, "Guess must be between 1 and 20."),
+        (21, 1, 20, False, "Guess must be between 1 and 20."),
+    ],
+)
+def test_validate_guess_range(guess, low, high, expected_ok, expected_err):
+    ok, err = validate_guess_range(guess, low, high)
+    assert ok is expected_ok
+    assert err == expected_err
+
+
+@pytest.mark.parametrize(
+    "guess, low, high",
+    [
+        (10, None, 20),
+        (10, 1, None),
+        (10, "1", 20),
+        (10, 20, 1),
+    ],
+)
+def test_validate_guess_range_invalid_bounds(guess, low, high):
+    ok, err = validate_guess_range(guess, low, high)
+    assert ok is False
+    assert err == "Game range is invalid."
+
+
+@pytest.mark.parametrize(
+    "difficulty, expected",
+    [
+        ("Easy", 6),
+        ("Normal", 8),
+        ("Hard", 5),
+        ("Impossible", 5),
+    ],
+)
+def test_get_attempt_limit_for_difficulty(difficulty, expected):
+    assert get_attempt_limit_for_difficulty(difficulty) == expected
 
 
 def test_update_score_win_has_minimum_points_floor():

@@ -9,6 +9,16 @@ def get_range_for_difficulty(difficulty: str):
     return 1, 100
 
 
+def get_attempt_limit_for_difficulty(difficulty: str):
+    """Return attempt limit for a given difficulty with a safe fallback."""
+    attempt_limit_map = {
+        "Easy": 6,
+        "Normal": 8,
+        "Hard": 5,
+    }
+    return attempt_limit_map.get(difficulty, attempt_limit_map["Hard"])
+
+
 def parse_guess(raw: str):
     """
     Parse user input into an int guess.
@@ -18,18 +28,36 @@ def parse_guess(raw: str):
     if raw is None:
         return False, None, "Enter a guess."
 
+    if not isinstance(raw, str):
+        return False, None, "That is not a number."
+
+    raw = raw.strip()
+
     if raw == "":
         return False, None, "Enter a guess."
 
     try:
-        if "." in raw:
-            value = int(float(raw))
-        else:
-            value = int(raw)
+        value = int(raw)
     except Exception:
         return False, None, "That is not a number."
 
     return True, value, None
+
+
+def validate_guess_range(guess: int, low: int, high: int):
+    """Validate that guess is within the inclusive [low, high] range."""
+    if not isinstance(guess, int):
+        return False, "That is not a number."
+
+    if not isinstance(low, int) or not isinstance(high, int):
+        return False, "Game range is invalid."
+
+    if low > high:
+        return False, "Game range is invalid."
+
+    if guess < low or guess > high:
+        return False, f"Guess must be between {low} and {high}."
+    return True, None
 
 
 def check_guess(guess, secret):
